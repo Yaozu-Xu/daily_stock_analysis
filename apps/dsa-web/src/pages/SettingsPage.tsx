@@ -79,7 +79,6 @@ type SettingsContentErrorBoundaryProps = {
 
 type SettingsContentErrorBoundaryState = {
   hasError: boolean;
-  message: string;
 };
 
 class SettingsContentErrorBoundary extends Component<
@@ -88,19 +87,17 @@ class SettingsContentErrorBoundary extends Component<
 > {
   state: SettingsContentErrorBoundaryState = {
     hasError: false,
-    message: '',
   };
 
   static getDerivedStateFromError(error: unknown): SettingsContentErrorBoundaryState {
     return {
       hasError: true,
-      message: error instanceof Error ? error.message : '未知的设置渲染异常',
     };
   }
 
   componentDidUpdate(previousProps: SettingsContentErrorBoundaryProps) {
     if (previousProps.resetKey !== this.props.resetKey && this.state.hasError) {
-      this.setState({ hasError: false, message: '' });
+      this.setState({ hasError: false });
     }
   }
 
@@ -113,7 +110,6 @@ class SettingsContentErrorBoundary extends Component<
       return this.props.children;
     }
 
-    const detail = this.state.message ? `错误信息：${this.state.message}。` : '';
     return (
       <SettingsSectionCard
         title="当前分类加载失败"
@@ -121,7 +117,7 @@ class SettingsContentErrorBoundary extends Component<
       >
         <SettingsAlert
           title={`${this.props.categoryTitle} 设置暂时无法显示`}
-          message={`${detail}请记录当前点击的设置分类，并提供 release 版本、Windows 版本和 desktop.log 继续排查。`}
+          message="该分类渲染失败，已阻止异常扩散。请记录当前点击分类、时间点、页面版本并提供 release、Windows 版本与 desktop.log 继续排查。"
           variant="error"
         />
       </SettingsSectionCard>

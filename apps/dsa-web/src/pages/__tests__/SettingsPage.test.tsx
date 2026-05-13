@@ -654,7 +654,13 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('button', { name: 'System' })).toBeInTheDocument();
     expect(screen.getByText(/通知渠道 设置暂时无法显示/)).toBeInTheDocument();
     expect(screen.getByText(/desktop\.log/)).toBeInTheDocument();
-    expect(screen.getByText(/boom:WECHAT_WEBHOOK_URL/)).toBeInTheDocument();
+    expect(screen.queryByText(/boom:WECHAT_WEBHOOK_URL/)).not.toBeInTheDocument();
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Settings category render failed',
+      expect.any(Error),
+      expect.any(Object),
+    );
 
     consoleErrorSpy.mockRestore();
   });
