@@ -119,6 +119,7 @@ const HomePage: React.FC = () => {
 
   const reportLanguage = normalizeReportLanguage(selectedReport?.meta.reportLanguage);
   const reportText = getReportText(reportLanguage);
+  const isMarketReviewHistoryReport = selectedReport?.meta.reportType === 'market_review';
   const setupNeedsAction = setupStatus ? !setupStatus.isComplete : false;
   const setupMissingLabels = useMemo(() => {
     if (!setupStatus) {
@@ -172,7 +173,7 @@ const HomePage: React.FC = () => {
   }, [navigate, selectedReport]);
 
   const handleReanalyze = useCallback(() => {
-    if (!selectedReport) {
+    if (!selectedReport || selectedReport.meta.reportType === 'market_review') {
       return;
     }
 
@@ -584,7 +585,7 @@ const HomePage: React.FC = () => {
                   <Button
                     variant="home-action-ai"
                     size="sm"
-                    disabled={isAnalyzing || selectedReport.meta.id === undefined}
+                    disabled={isAnalyzing || selectedReport.meta.id === undefined || isMarketReviewHistoryReport}
                     onClick={handleReanalyze}
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

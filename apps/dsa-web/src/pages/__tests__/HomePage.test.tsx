@@ -78,6 +78,33 @@ const historyReport = {
   },
 };
 
+const marketReviewHistoryItem = {
+  id: 2,
+  queryId: 'market-review-q-1',
+  stockCode: 'MARKET',
+  stockName: '大盘复盘',
+  reportType: 'market_review' as const,
+  createdAt: '2026-03-18T08:00:00Z',
+};
+
+const marketReviewHistoryReport = {
+  meta: {
+    id: 2,
+    queryId: 'market-review-q-1',
+    stockCode: 'MARKET',
+    stockName: '大盘复盘',
+    reportType: 'market_review' as const,
+    reportLanguage: 'zh' as const,
+    createdAt: '2026-03-18T08:00:00Z',
+  },
+  summary: {
+    analysisSummary: '大盘复盘摘要',
+    operationAdvice: '查看复盘',
+    trendPrediction: '大盘复盘',
+    sentimentScore: 50,
+  },
+};
+
 describe('HomePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -490,5 +517,30 @@ describe('HomePage', () => {
       originalQuery: '600519',
       forceRefresh: true,
     }));
+  });
+
+  it('disables stock reanalysis for market review history reports', async () => {
+    vi.mocked(historyApi.getList).mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 20,
+      items: [marketReviewHistoryItem],
+    });
+    vi.mocked(historyApi.getDetail).mockResolvedValue(marketReviewHistoryReport);
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('大盘复盘摘要');
+    const reanalyzeButton = screen.getByRole('button', { name: '重新分析' });
+
+    expect(reanalyzeButton).toBeDisabled();
+
+    fireEvent.click(reanalyzeButton);
+
+    expect(analysisApi.analyzeAsync).not.toHaveBeenCalled();
   });
 });
