@@ -42,6 +42,7 @@ from src.core.config_registry import (
     get_field_definition,
     get_registered_field_keys,
 )
+from src.llm.errors import call_litellm_with_param_recovery
 from src.llm.generation_params import apply_litellm_generation_params
 from src.notification_noise import validate_notification_timezone
 from src.notification_sender.gotify_sender import resolve_gotify_message_endpoint
@@ -727,16 +728,15 @@ class SystemConfigService:
             "max_tokens": 256,  # Increased to allow MiniMax-M2.7 thinking process + response
             "timeout": max(5.0, float(timeout_seconds)),
         }
-        # Adapt generation args only for this request; do not persist changes to LLM_TEMPERATURE.
+        if selected_api_key:
+            call_kwargs["api_key"] = selected_api_key
+        if base_url.strip():
+            call_kwargs["api_base"] = base_url.strip()
         call_kwargs = apply_litellm_generation_params(
             call_kwargs,
             resolved_model,
             self._get_runtime_llm_temperature(),
         )
-        if selected_api_key:
-            call_kwargs["api_key"] = selected_api_key
-        if base_url.strip():
-            call_kwargs["api_base"] = base_url.strip()
 
         try:
             import litellm
@@ -748,7 +748,13 @@ class SystemConfigService:
             LLMToolAdapter._register_custom_model_pricing()
 
             started_at = time.perf_counter()
-            response = litellm.completion(**call_kwargs)
+            response = call_litellm_with_param_recovery(
+                lambda kwargs: litellm.completion(**kwargs),
+                model=resolved_model,
+                call_kwargs=call_kwargs,
+                logger=logger,
+                log_label="[LLM channel test]",
+            )
             latency_ms = int((time.perf_counter() - started_at) * 1000)
             content, parse_error_code, parse_error, parse_reason = self._extract_llm_completion_content(response)
             if parse_error_code:
@@ -1162,7 +1168,6 @@ class SystemConfigService:
             call_kwargs["api_base"] = base_url.strip()
         if extra:
             call_kwargs.update(extra)
-        # Keep runtime behavior isolated: this normalization does not rewrite runtime settings.
         call_kwargs = apply_litellm_generation_params(
             call_kwargs,
             resolved_model,

@@ -3,9 +3,10 @@
 
 from __future__ import annotations
 
+import json
 import re
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 
 # Kimi K2.6 is consumed through Moonshot's OpenAI-compatible API in this
@@ -14,14 +15,6 @@ from typing import Any, Dict, List, Optional
 # - https://platform.moonshot.ai/docs/guide/compatibility#parameters-differences-in-request-body
 # - https://huggingface.co/moonshotai/Kimi-K2.6
 # - https://docs.litellm.ai/docs/providers/openai_compatible
-#
-# GPT-5 / o-series omission logic is a repository-local compatibility strategy
-# for the locked dependency window and should be treated as a conservative rule
-# rather than a universal provider contract:
-# - Runtime dependency window: litellm>=1.80.10,!=1.82.7,!=1.82.8,<2.0.0.
-# - Source-of-truth verification for this strategy is in regression coverage
-#   (tests/test_llm_channel_config.py, tests/test_market_analyzer_generate_text.py,
-#   tests/test_system_config_service.py).
 _FIXED_TEMPERATURE_LITELLM_MODELS: Dict[str, Dict[str, float]] = {
     "kimi-k2.6": {
         "thinking": 1.0,
@@ -39,23 +32,75 @@ class TemperatureDirective:
     reason: str = ""
 
 
+@dataclass(frozen=True)
+class GenerationParamRecovery:
+    """A learned request-parameter repair for a LiteLLM model call."""
+
+    omit_params: Tuple[str, ...] = ()
+    set_params: Mapping[str, Any] = field(default_factory=dict)
+    reason: str = ""
+
+
+_GENERATION_PARAM_RECOVERY_CACHE: Dict[str, GenerationParamRecovery] = {}
+
+_LITELLM_ENDPOINT_PARAM_KEYS = (
+    "api_base",
+    "base_url",
+    "api_version",
+    "api_type",
+    "azure_endpoint",
+    "azure_deployment",
+    "deployment_id",
+    "custom_llm_provider",
+    "organization",
+    "region_name",
+    "aws_region_name",
+    "vertex_project",
+    "vertex_location",
+    "extra_headers",
+    "headers",
+    "default_headers",
+)
+_LITELLM_ROUTING_PARAM_KEYS = ("model", *_LITELLM_ENDPOINT_PARAM_KEYS)
+_SECRET_CACHE_FIELD_NAMES = {
+    "api_key",
+    "authorization",
+    "proxy_authorization",
+    "cookie",
+    "set-cookie",
+    "x-api-key",
+    "api-key",
+    "openai-api-key",
+}
+
+
 def _resolve_litellm_model_list_entry(
     model: str,
     model_list: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Return the Router model_list entry matching the configured alias."""
+    entries = _resolve_litellm_model_list_entries(model, model_list)
+    return entries[0] if entries else None
+
+
+def _resolve_litellm_model_list_entries(
+    model: str,
+    model_list: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """Return Router model_list entries matching the configured alias."""
     normalized_model = (model or "").strip()
     if not normalized_model or not model_list:
-        return None
+        return []
 
+    entries: List[Dict[str, Any]] = []
     for entry in model_list:
         model_name = str(entry.get("model_name") or "").strip()
         if not model_name:
             params = entry.get("litellm_params", {}) or {}
             model_name = str(params.get("model") or "").strip()
         if model_name == normalized_model:
-            return entry
-    return None
+            entries.append(entry)
+    return entries
 
 
 def resolve_litellm_wire_model(
@@ -142,12 +187,11 @@ def _matches_model_family(model: str, family: str) -> bool:
 
 def _should_omit_litellm_temperature(model: str) -> bool:
     """Return whether a model family should rely on the provider default temperature."""
-    normalized_family = _model_parts(model)
     return any(
         part.startswith(("gpt-5", "gpt5"))
         or part in {"o1", "o3", "o4"}
         or part.startswith(("o1-", "o3-", "o4-"))
-        for part in normalized_family
+        for part in _model_parts(model)
     )
 
 
@@ -224,6 +268,144 @@ def normalize_litellm_temperature(
     return float(temperature)
 
 
+def _redact_recovery_cache_value(param_name: str, value: Any) -> Any:
+    if param_name.strip().lower() in _SECRET_CACHE_FIELD_NAMES:
+        return "<set>" if value else "<empty>"
+    if isinstance(value, Mapping):
+        return {
+            str(key): _redact_recovery_cache_value(str(key), nested_value)
+            for key, nested_value in sorted(value.items(), key=lambda item: str(item[0]))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_redact_recovery_cache_value(param_name, item) for item in value]
+    return value
+
+
+def _stable_recovery_cache_json(value: Mapping[str, Any]) -> str:
+    redacted = {
+        key: _redact_recovery_cache_value(key, val)
+        for key, val in sorted(value.items())
+    }
+    return json.dumps(redacted, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _filter_litellm_routing_params(params: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        key: params[key]
+        for key in _LITELLM_ROUTING_PARAM_KEYS
+        if key in params and params[key] not in (None, "")
+    }
+
+
+def _request_endpoint_cache_scope(request_overrides: Optional[Dict[str, Any]]) -> Optional[str]:
+    if not isinstance(request_overrides, Mapping):
+        return None
+    routing_params = _filter_litellm_routing_params(request_overrides)
+    if not any(key in routing_params for key in _LITELLM_ENDPOINT_PARAM_KEYS):
+        return None
+    return _stable_recovery_cache_json(routing_params)
+
+
+def _model_list_endpoint_cache_scope(
+    model: str,
+    model_list: Optional[List[Dict[str, Any]]],
+) -> Optional[str]:
+    entries = _resolve_litellm_model_list_entries(model, model_list)
+    if not entries:
+        return "default"
+
+    fingerprints = set()
+    for entry in entries:
+        params = entry.get("litellm_params", {}) or {}
+        if not isinstance(params, Mapping):
+            params = {}
+        routing_params = _filter_litellm_routing_params(params)
+        if not routing_params:
+            routing_params = {"model": str(entry.get("model_name") or model).strip()}
+        fingerprints.add(_stable_recovery_cache_json(routing_params))
+
+    if len(fingerprints) != 1:
+        return None
+    return next(iter(fingerprints))
+
+
+def _recovery_cache_key(
+    model: str,
+    *,
+    model_list: Optional[List[Dict[str, Any]]] = None,
+    request_overrides: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    wire_model = resolve_litellm_wire_model(model, model_list).strip().lower()
+    thinking_enabled = resolve_litellm_thinking_enabled(
+        model,
+        model_list=model_list,
+        request_overrides=request_overrides,
+    )
+    endpoint_scope = _request_endpoint_cache_scope(request_overrides)
+    if endpoint_scope is None:
+        endpoint_scope = _model_list_endpoint_cache_scope(model, model_list)
+    if endpoint_scope is None:
+        return None
+    return (
+        f"{wire_model or (model or '').strip().lower()}"
+        f"|thinking={thinking_enabled}"
+        f"|endpoint={endpoint_scope}"
+    )
+
+
+def apply_litellm_param_recovery(
+    call_kwargs: Dict[str, Any],
+    recovery: GenerationParamRecovery,
+) -> Dict[str, Any]:
+    """Return kwargs with a learned parameter recovery applied."""
+    updated = dict(call_kwargs)
+    for param in recovery.omit_params:
+        updated.pop(param, None)
+    for param, value in recovery.set_params.items():
+        updated[param] = value
+    return updated
+
+
+def get_cached_litellm_generation_param_recovery(
+    model: str,
+    *,
+    model_list: Optional[List[Dict[str, Any]]] = None,
+    request_overrides: Optional[Dict[str, Any]] = None,
+) -> Optional[GenerationParamRecovery]:
+    """Return a process-local parameter recovery learned for this model call shape."""
+    key = _recovery_cache_key(
+        model,
+        model_list=model_list,
+        request_overrides=request_overrides,
+    )
+    if key is None:
+        return None
+    return _GENERATION_PARAM_RECOVERY_CACHE.get(key)
+
+
+def remember_litellm_generation_param_recovery(
+    model: str,
+    recovery: GenerationParamRecovery,
+    *,
+    model_list: Optional[List[Dict[str, Any]]] = None,
+    request_overrides: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Remember a successful parameter recovery for later requests in this process."""
+    key = _recovery_cache_key(
+        model,
+        model_list=model_list,
+        request_overrides=request_overrides,
+    )
+    if key is None:
+        return
+    _GENERATION_PARAM_RECOVERY_CACHE[key] = recovery
+
+
+def clear_litellm_generation_param_recovery_cache() -> None:
+    """Clear process-local learned parameter recoveries. Intended for tests."""
+    _GENERATION_PARAM_RECOVERY_CACHE.clear()
+
+
 def apply_litellm_generation_params(
     call_kwargs: Dict[str, Any],
     model: str,
@@ -247,4 +429,11 @@ def apply_litellm_generation_params(
         updated["temperature"] = directive.temperature
     else:
         updated["temperature"] = default_temperature if temperature is None else float(temperature)
+    cached_recovery = get_cached_litellm_generation_param_recovery(
+        model,
+        model_list=model_list,
+        request_overrides=updated,
+    )
+    if cached_recovery:
+        updated = apply_litellm_param_recovery(updated, cached_recovery)
     return updated
