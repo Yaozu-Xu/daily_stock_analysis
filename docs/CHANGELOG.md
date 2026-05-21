@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 <!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->
+- [chore] 清理 Pydantic v2 弃用写法并在 Web 路由层启用 lazy load + manualChunks，减少 pytest / Vite 告警并提升首屏体积。
 
 ## [3.18.0] - 2026-05-21
 
