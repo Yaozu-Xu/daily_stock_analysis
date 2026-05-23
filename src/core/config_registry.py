@@ -2755,7 +2755,10 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     },
     "AGENT_EVENT_MONITOR_ENABLED": {
         "title": "Event Monitor",
-        "description": "Enable background Event Monitor polling in schedule mode.",
+        "description": (
+            "Enable background Event Monitor polling in schedule mode. "
+            "Disable to keep existing analysis and report flow unaffected."
+        ),
         "category": "agent",
         "data_type": "boolean",
         "ui_control": "switch",
@@ -2769,7 +2772,10 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     },
     "AGENT_EVENT_MONITOR_INTERVAL_MINUTES": {
         "title": "Event Monitor Interval",
-        "description": "Polling interval, in minutes, for background Event Monitor checks.",
+        "description": (
+            "Polling interval, in minutes, for background Event Monitor checks. "
+            "No-op when Event Monitor is disabled."
+        ),
         "category": "agent",
         "data_type": "integer",
         "ui_control": "number",
@@ -2782,18 +2788,18 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "display_order": 70,
     },
     "AGENT_EVENT_ALERT_RULES_JSON": {
-        "title": "Event Alert Rules",
+        "title": "Event Alert Rules (Legacy)",
         "description": (
-            "JSON array of Event Monitor rules loaded by schedule mode. "
-            "Legacy JSON supports only price_cross, price_change_percent, and volume_spike. "
-            "Technical indicator alert rules are available through the Alert API/Web center."
+            "Legacy JSON entrypoint for Event Monitor compatibility. "
+            "Supported types: price_cross, price_change_percent, volume_spike. "
+            "Use the Alert API/Web center for managed rules in normal operation."
         ),
         "category": "agent",
         "data_type": "json",
         "ui_control": "textarea",
         "is_sensitive": False,
         "is_required": False,
-        "is_editable": True,
+        "is_editable": False,
         "default_value": "",
         "options": [],
         "validation": {},

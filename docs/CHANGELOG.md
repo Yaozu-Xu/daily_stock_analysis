@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [修复] 归一腾讯实时行情成交量为股口径，避免量能变化倍数被放大并误导分析报告。
 - [改进] Web 路由页面改为按需加载，降低首包体积并增加路由加载失败恢复提示。
 - [修复] Docker 默认部署移除 `.env` 单文件挂载，避免 WebUI 保存配置时因 `os.replace` 更新挂载点触发 `Device or resource busy`。
+- [文档] 完成告警中心 P8 收口文档：补齐本地/容器/GitHub Actions/Web/Desktop 配置与兼容边界说明，并明确 legacy JSON 与持久化规则的收口关系。
 
 ## [3.18.0] - 2026-05-21
 

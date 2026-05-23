@@ -600,6 +600,58 @@ describe('SettingsPage', () => {
     expect(settingsPanelErrorBoundary).toHaveBeenCalledWith('Agent 设置');
   });
 
+  it('hides legacy event alert JSON field in Agent settings', () => {
+    useSystemConfigMock.mockReturnValue(buildSystemConfigState({
+      activeCategory: 'agent',
+      itemsByCategory: {
+        ...buildSystemConfigState().itemsByCategory,
+        agent: [
+          {
+            key: 'AGENT_EVENT_MONITOR_ENABLED',
+            value: 'false',
+            rawValueExists: true,
+            isMasked: false,
+            schema: {
+              key: 'AGENT_EVENT_MONITOR_ENABLED',
+              category: 'agent',
+              dataType: 'boolean',
+              uiControl: 'switch',
+              isSensitive: false,
+              isRequired: false,
+              isEditable: true,
+              options: [],
+              validation: {},
+              displayOrder: 3,
+            },
+          },
+          {
+            key: 'AGENT_EVENT_ALERT_RULES_JSON',
+            value: '[{"stock_code":"600519","alert_type":"price_cross","direction":"above","price":1800}]',
+            rawValueExists: true,
+            isMasked: false,
+            schema: {
+              key: 'AGENT_EVENT_ALERT_RULES_JSON',
+              category: 'agent',
+              dataType: 'json',
+              uiControl: 'textarea',
+              isSensitive: false,
+              isRequired: false,
+              isEditable: false,
+              options: [],
+              validation: {},
+              displayOrder: 4,
+            },
+          },
+        ],
+      },
+    }));
+
+    render(<SettingsPage />);
+
+    expect(screen.getByText('AGENT_EVENT_MONITOR_ENABLED')).toBeInTheDocument();
+    expect(screen.queryByText('AGENT_EVENT_ALERT_RULES_JSON')).not.toBeInTheDocument();
+  });
+
   it('reset button semantic: discards local changes without network request', () => {
     // Simulate user has unsaved drafts
     const dirtyState = buildSystemConfigState({

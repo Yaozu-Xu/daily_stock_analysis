@@ -331,6 +331,76 @@ P6 不做：
 - 不做 sector 级集中度告警；P6 集中度使用 symbol 维度 `top_weight_pct`。
 - 不做跨规则同标的通知合并、分钟线、多市场时区精确判定或 legacy JSON 扩展。
 
+## P7 大盘红绿灯与市场联动
+
+P7 在 P3-P6 已有基础能力上，消费 `MarketLightSnapshot`，将大盘风险纳入告警闭环。
+
+`src/services/market_review_service.py` 与 `src/services/alert_worker.py` 的 worker 会将结构化快照作为一个特殊目标参与评估，默认目标 scope 固定为 `market`。
+
+- `MarketLightSnapshot` 采用固定字段：`region`、`trade_date`、`status`、`score`、`dimensions`、`reasons`、`guidance`、`data_quality`。
+- 告警类型：
+  - `market_light_status`：`status` 红黄绿灯阈值映射。默认：`red` 告警，`yellow` 触发提醒，`green` 不触发。
+  - `market_score_delta`：按 `score` 变化率触发；建议阈值使用 `abs(delta)` 规则。
+  - `market_index_decline`：按 `dimensions.index_return_1d` 或 `dimensions.index_decline_pct` 触发。
+  - `market_breadth_deterioration`：按涨跌停/跌停比例失衡、有效上升股比例等维度触发。
+- `data_quality` 不足、快照缺失、region 不一致时写 `degraded`，不触发误报。
+- 市场快照使用 `trade_date` 做时间边界，避免将昨日状态误用于今日告警。
+- 大盘快照缺失时支持 fallback：仅记录 `skipped`，并保留上次快照状态字段。
+
+P7 实现要点：
+
+- 告警中心仅消费结构化快照，不解析 Markdown 文案。
+- Market Light 旧文本输出保持兼容展示，不改变其原有输出语义。
+- P7 不自动创建新数据源；使用当前市场复盘链路已有数据。
+
+P7 不做：
+
+- 不在此阶段做全市场事件文本到规则 DSL 的隐式转换。
+- 不在 schedule 闭环内实现盘前盘后两套行情模型并行评估。
+- 不对未实现的市场区域回溯历史做补偿告警。
+
+## P8 文档、迁移与收口
+
+P8 仅做能力说明收口，不再新增 API/Worker/Web 功能。
+
+## 本地配置
+
+- 告警开关与周期：`AGENT_EVENT_MONITOR_ENABLED`、`AGENT_EVENT_MONITOR_INTERVAL_MINUTES`。
+- Legacy 兼容：`AGENT_EVENT_ALERT_RULES_JSON` 仅保留 legacy 运行时入口，不做自动迁移、覆盖、改写。
+- 运行时优先级：持久化规则（`Alert API`）与 legacy JSON 并行加载；优先执行持久化规则，legacy 作为兼容补充。
+- 降级策略：单条规则失败写 `failed`，不影响同轮其他规则与主分析流程。
+
+## Docker
+
+- Docker 镜像不强制开启告警；默认仅加载 `.env` 示例，默认告警保持关闭。
+- 告警收口阶段不新增环境变量入口，不影响现有镜像层和 entrypoint。
+- 如需在容器环境启用告警，建议在部署时通过环境变量覆盖 `AGENT_EVENT_MONITOR_ENABLED=true` 与告警规则内容。
+
+## GitHub Actions
+
+- 现有 workflow 继续透传 `AGENT_EVENT_MONITOR_ENABLED`、`AGENT_EVENT_MONITOR_INTERVAL_MINUTES` 与告警相关变量；P8 期间不新增新的定时触发器。
+- 告警中心 Web/API 使用场景可依赖现有接口与数据库初始化；无需变更 Actions 步骤即可观察触发结果。
+- 回归检查建议覆盖：`test_alerts_docs` 及告警相关后端/前端最小用例通过。
+
+## Web 使用
+
+- 告警规则的管理入口集中到 `/alerts`：列表、创建、启停、测试、触发历史、通知结果。
+- `AGENT_EVENT_ALERT_RULES_JSON` 在 Web 系统配置页不提供编辑入口；兼容配置仅用于 legacy 回退。
+- 系统设置页仍保留告警基础运行时开关，但不承载规则 JSON 的可编辑配置。
+
+## Desktop
+
+- 桌面端复用 Web 路由与 API，不新增桌面专用告警能力。
+- Desktop 的配置导入导出与 `env` 备份行为保持不变；导出样例中不会自动写入历史告警历史数据。
+- Desktop 端发布与更新策略不变，告警收口仅影响文档与配置显示边界。
+
+## P8 收口回滚与兼容边界
+
+- 文档与文案变更只影响可观测性与运维文档，不触发数据库 schema 变更。
+- 回滚方式：在不需要 P8 文案收口场景时可回退本次提交；现有告警运行时能力不依赖该变更。
+- 回滚时建议保留 `.env` 与 alert center 已写入配置；如需关闭告警，可直接将 `AGENT_EVENT_MONITOR_ENABLED` 置为 false。
+- 若发现 `AGENT_EVENT_ALERT_RULES_JSON` 与 API 管理规则语义不一致，以 `AGENT_EVENT_ALERT_RULES_JSON` 为 legacy 保底行为。
+
 ## Phase 边界
 
 - P0：本文档、契约、存储评估和兼容测试。

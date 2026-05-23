@@ -249,6 +249,22 @@ def test_alerts_doc_defines_p6_portfolio_and_watchlist_scope() -> None:
         assert token in doc
 
 
+def test_alerts_doc_defines_p7_market_light_and_p8_checkout_sections() -> None:
+    doc = _read_doc()
+
+    for token in (
+        "## P7 大盘红绿灯与市场联动",
+        "MarketLightSnapshot",
+        "## P8 文档、迁移与收口",
+        "## 本地配置",
+        "## Docker",
+        "## GitHub Actions",
+        "## Web 使用",
+        "## Desktop",
+    ):
+        assert token in doc
+
+
 def test_changelog_mentions_alert_p6_release_note() -> None:
     changelog = (PROJECT_ROOT / "docs" / "CHANGELOG.md").read_text(encoding="utf-8")
 
