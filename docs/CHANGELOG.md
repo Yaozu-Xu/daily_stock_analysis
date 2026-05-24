@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [文档] 新增 #1391 Phase 0 运行诊断契约文档，明确 trace_id、诊断摘要、关键链路范围与脱敏/fail-open/retention 边界。
 - [改进] Web 路由页面改为按需加载，降低首包体积并增加路由加载失败恢复提示。
 - [修复] Docker 默认部署移除 `.env` 单文件挂载，避免 WebUI 保存配置时因 `os.replace` 更新挂载点触发 `Device or resource busy`。
-- [修复] 修复 `STOCK_LIST` 使用裸 A 股代码时 Baostock 等数据源 fallback 的内部格式转换，保持用户配置继续使用 6 位股票编号。
+- [文档] 明确 #1391 Phase 0 边界：本轮锁定诊断契约与验证口径，裸 A 股代码回退优先级的 runtime 修复范围已限制为文档化说明，Tushare 等数据源的 605xxx 等分支需在后续 PR 跟进。
 
 ## [3.18.0] - 2026-05-21
 
