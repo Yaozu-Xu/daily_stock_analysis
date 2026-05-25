@@ -1,6 +1,6 @@
 # 运行诊断与数据可靠性 1.0（Phase 3）
 
-本文档记录 #1391 Phase 3 的 Web 展示落地范围：在不新增配置、不改变后端诊断语义的前提下，把 Phase 2 的诊断摘要展示给自部署用户。
+本文档记录 #1391 Phase 3 的交付范围：在不新增配置的前提下，补齐运行诊断可见性并将历史排障信息回填到后端上下文快照，便于自部署环境快速定位异常。
 
 ## 本轮范围
 
@@ -14,6 +14,7 @@ GET /api/v1/history/{record_id}/diagnostics
 
 - 同步分析响应若已经带有 `diagnostic_summary`，前端可直接展示，不额外请求历史接口。
 - 诊断面板支持复制后端生成的脱敏 `copy_text`，用于 issue 或部署排障。
+- 分析链路在保存历史后会补齐任务/Provider/LLM/通知诊断到 `context_snapshot.diagnostics`，历史诊断接口统一聚合为用户可读摘要。
 
 ## 状态文案
 
@@ -43,11 +44,13 @@ GET /api/v1/history/{record_id}/diagnostics
 ## 兼容性边界
 
 - 本轮不新增 `.env` 配置项，不修改数据库结构，不引入数据迁移。
-- Web 只消费 Phase 1/2 已追加的可选字段和只读诊断接口。
+- Web 只消费 Phase 1/2 已追加的可选字段和只读诊断接口；后端补齐 `src/core/pipeline.py`、`src/services/run_diagnostics.py`、`src/storage.py` 的诊断持久化与刷新逻辑，并通过 `api/v1/endpoints/history.py`/`src/services/history_service.py` 提供可读端点。
+- 后端变更范围包含任务编排、历史保存后补写、历史诊断查询与通知结果诊断记录；这些链路只追加诊断快照和摘要，不改变分析主流程、通知发送成败语义或历史报告主体字段。
 - 复制文本由后端生成并脱敏；前端只负责展示和复制。
 - Desktop 复用 Web 构建产物，未单独改动 Electron 主进程或打包脚本。
-- 运行时配置/模型/provider/base_url 兼容语义不调整：仅补充诊断持久化与展示，不改 provider 优先级、LiteLLM 路由、运行时清理与配置回退逻辑。
+- 运行时配置/模型/provider/base_url 兼容语义不调整：除诊断持久化链路外，不改 provider 优先级、LiteLLM 路由、运行时清理与配置回退逻辑。
 - 旧历史与旧配置兼容规则不变：历史诊断查询新增可选字段不影响既有历史查询响应解析；回退方式为移除本轮展示与相关前端查询路径，或按现有指南恢复模型和配置。
+- 回滚策略：优先回退前端展示与查询入口；若需完全隔离新增链路，可回滚本轮 PR（回退后保留历史记录原有响应，新增诊断端点不再在 Web 中展示）。
 
 ## 兼容性回归与验证
 
@@ -57,6 +60,7 @@ GET /api/v1/history/{record_id}/diagnostics
   - `tests/test_scheduler_background.py`
   - `tests/test_analysis_api_contract.py`（子集：诊断上下文入出参/状态查询契约）
   - `tests/test_analysis_history.py`（子集：历史 API 与持久化链路）
+- 覆盖关系：API 合约由 `tests/test_analysis_api_contract.py` 与 `tests/test_analysis_history.py` 覆盖；任务编排、历史保存和 `context_snapshot.diagnostics` 由 `tests/test_pipeline_market_phase_context.py` 覆盖；通知路径通过 `./scripts/ci_gate.sh` 中的既有通知回归与导入检查兜底。
 - 回归命令：
 
 ```bash
@@ -84,6 +88,12 @@ npm test -- --run src/components/report/__tests__/ReportDiagnostics.test.tsx src
 ./scripts/ci_gate.sh
 ```
 
+可补充确定性脚本校验：
+
+```bash
+python -m py_compile api/v1/endpoints/analysis.py api/v1/endpoints/history.py api/v1/schemas/analysis.py api/v1/schemas/history.py src/core/pipeline.py src/services/run_diagnostics.py src/storage.py
+```
+
 ## 回滚
 
-最小回滚方式：revert Phase 3 PR。由于没有新增配置、数据库迁移或数据回填，回滚后后端诊断 API 与历史快照仍保留，Web 不再展示诊断面板。
+最小回滚方式：revert Phase 3 PR。由于本轮为可选字段与可读接口增强，回滚后后端历史快照与已落库数据保留，Web 不再展示诊断面板与 trace 诊断入口。

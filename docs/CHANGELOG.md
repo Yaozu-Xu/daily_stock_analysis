@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [新功能] 落地 #1391 Phase 1 运行诊断最小链路：任务/SSE 追加 trace_id，并记录日线与实时行情 ProviderRun 快照。
 - [新功能] 落地 #1391 Phase 2 运行诊断摘要：生成用户可读 RunDiagnosticSummary，提供历史报告诊断 API 与脱敏复制文本。
 - [新功能] 落地 #1391 Phase 3 Web 诊断展示：报告详情和任务面板默认折叠展示运行状态、trace 与可复制排障信息。
+- [文档] 补充 #1391 Phase 3 兼容性说明：记录后端诊断持久化/历史查询/通知回写链路变更边界与回滚策略，并补齐后端门禁级验证要求。
 - [改进] Web 路由页面改为按需加载，降低首包体积并增加路由加载失败恢复提示。
 - [修复] Docker 默认部署移除 `.env` 单文件挂载，避免 WebUI 保存配置时因 `os.replace` 更新挂载点触发 `Device or resource busy`。
 - [修复] 收敛 #1391 Phase 0 A 股代码归属边界：补齐 `SH`/`SZ` 前缀场景的归属一致性，明确 `data_provider/baostock_fetcher.py`、`data_provider/pytdx_fetcher.py`、`data_provider/tushare_fetcher.py` 的本轮修复范围。

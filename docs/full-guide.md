@@ -1252,6 +1252,7 @@ FastAPI 提供 RESTful API 服务，支持配置管理和触发分析。
 > 说明：该端点若返回 `task_id`，WebUI 会轮询 `GET /api/v1/analysis/status/{task_id}` 展示状态。状态为 `completed` 时给出完成提示（报告已生成并按配置推送），状态为 `failed` 时在前端错误区域显示 `error` 原因。
 > 说明：`GET /api/v1/history/{record_id}/diagnostics` 支持历史记录主键 ID 或 `query_id`，返回 `normal/degraded/failed/unknown` 摘要、关键链路组件和可复制的脱敏 `copy_text`；旧报告缺少诊断快照时返回 `unknown`，不影响报告读取。
 > 说明：Web 报告详情会默认折叠展示运行诊断摘要，任务面板会折叠展示 trace 信息；更细的状态文案与回滚边界见 [运行诊断 Phase 3 文档](run-diagnostics-p3.md)。
+> 说明：Phase 3 诊断可见性依赖后端持久化补齐（`src/core/pipeline.py`、`src/services/run_diagnostics.py`、`src/storage.py`）将任务与通知结果写入历史快照，API 与客户端仅增加可选字段/只读链路，不改变 provider/model/base_url 配置优先级、通知发送成败语义与回退行为。
 
 > 兼容性审计证据：
 > - 官方来源：LiteLLM OpenAI-compatible provider 文档 <https://docs.litellm.ai/docs/providers/openai_compatible>；OpenAI Chat API 文档 <https://platform.openai.com/docs/api-reference/chat/create>；DeepSeek API 文档 <https://api-docs.deepseek.com/>。
@@ -1260,6 +1261,8 @@ FastAPI 提供 RESTful API 服务，支持配置管理和触发分析。
 >   - `tests/test_llm_channel_config.py`（配置源优先级与 provider/base url 映射）
 >   - `tests/test_market_review_runtime.py`（`build_market_review_runtime` 复用装配路径）
 >   - `tests/test_analysis_api_contract.py`（`/api/v1/analysis/market-review` 合约与任务状态链路）
+>   - `tests/test_pipeline_market_phase_context.py`（`context_snapshot.diagnostics` 与历史链路兼容）
+>   - `tests/test_analysis_history.py`（历史诊断接口回归）
 > - 回滚/回退：若新路径有问题，可先恢复历史 `LITELLM_MODEL`、`LITELLM_FALLBACK_MODELS` 与 legacy `GEMINI_*` / `OPENAI_*` / `ANTHROPIC_*` / `DEEPSEEK_*`，或通过桌面端备份或已启用管理员鉴权的 Web 端 `POST /api/v1/system/config/import` 回滚并重启；在运行时级别可暂时清空 `LITELLM_CONFIG` / `LLM_CHANNELS` 触发 legacy 回退。
 
 > 进度流说明：`GET /api/v1/analysis/tasks/stream` 除 `task_created / task_started / task_completed / task_failed` 外，新增 `task_progress` 事件。普通分析链路会在“行情准备 / 新闻检索 / 上下文整理 / LLM 生成 / 报告保存”等阶段持续更新 `progress` 与 `message`。LiteLLM 流式返回仅在服务端累积完整文本，最终 JSON 解析成功后才会持久化历史报告；若流式在首个 chunk 前不可用，会自动回退到原非流式调用；若已产生部分 chunk 后失败，系统先尝试同模型非流式重试，失败后再按既有主模型->备用模型顺序继续尝试。  
