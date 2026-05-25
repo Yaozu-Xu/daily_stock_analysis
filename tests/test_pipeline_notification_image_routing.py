@@ -108,6 +108,29 @@ class TestPipelineEmailGroupImageRouting(unittest.TestCase):
         self.assertIn(["group@example.com"], called_receivers)
         self.assertIn(None, called_receivers)
 
+    @patch("src.md2img.markdown_to_image", return_value=None)
+    def test_email_group_diagnostics_only_patch_group_results(self, _mock_md2img):
+        pipeline = self._build_pipeline()
+        pipeline.save_context_snapshot = True
+        pipeline.db = MagicMock()
+        pipeline.notifier.send_to_email.side_effect = [RuntimeError("group failed"), True]
+        results = self._make_results()
+        results[0].query_id = "query-group"
+        results[1].query_id = "query-default"
+
+        pipeline._send_notifications(results, ReportType.SIMPLE)
+
+        calls = pipeline.db.update_analysis_history_diagnostics.call_args_list
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0].kwargs["query_id"], "query-group")
+        self.assertEqual(calls[0].kwargs["code"], "000001")
+        self.assertEqual(calls[0].kwargs["notification_runs"][0]["status"], "failed")
+        self.assertEqual(calls[0].kwargs["notification_runs"][0]["channel"], "email:group@example.com")
+        self.assertEqual(calls[1].kwargs["query_id"], "query-default")
+        self.assertEqual(calls[1].kwargs["code"], "600519")
+        self.assertEqual(calls[1].kwargs["notification_runs"][0]["status"], "success")
+        self.assertEqual(calls[1].kwargs["notification_runs"][0]["channel"], "email:default")
+
 
 class _FakeWechatNotifier:
     def __init__(self):

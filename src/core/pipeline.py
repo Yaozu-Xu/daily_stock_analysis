@@ -2353,6 +2353,7 @@ class StockAnalysisPipeline:
                     channel_label: str,
                     success: bool,
                     error_message: Optional[Exception] = None,
+                    target_results: Optional[List[AnalysisResult]] = None,
                 ) -> None:
                     notification_run = self._build_notification_run_snapshot(
                         channel=channel_label,
@@ -2367,7 +2368,7 @@ class StockAnalysisPipeline:
                         error_message=error_message,
                     )
                     self._refresh_saved_diagnostic_snapshot(
-                        results=results,
+                        results=results if target_results is None else target_results,
                         notification_run=notification_run,
                     )
 
@@ -2515,6 +2516,7 @@ class StockAnalysisPipeline:
                                     email_label,
                                     channel_success,
                                     channel_error,
+                                    target_results=group_results,
                                 )
                         else:
                             def _send_email_report() -> bool:
