@@ -587,7 +587,25 @@ class SystemConfigService:
         if selected_api_key:
             request_headers["Authorization"] = f"Bearer {selected_api_key}"
 
-        models_url = self._build_llm_models_url(base_url)
+        try:
+            models_url = self._build_llm_models_url(base_url)
+        except ValueError as exc:
+            return self._build_llm_channel_result(
+                success=False,
+                message="LLM channel configuration is invalid",
+                error=str(exc),
+                stage="model_discovery",
+                error_code="invalid_config",
+                retryable=False,
+                details={
+                    "issue_key": "discover_channel_BASE_URL",
+                    "issue_code": "invalid_url",
+                    "reason": "invalid_url",
+                },
+                resolved_protocol=resolved_protocol or None,
+                models=[],
+                latency_ms=None,
+            )
 
         try:
             started_at = time.perf_counter()
@@ -1898,6 +1916,28 @@ class SystemConfigService:
         return parsed.scheme in allowed_schemes and bool(parsed.netloc)
 
     @staticmethod
+    def _is_valid_llm_base_url(value: str, allowed_schemes: Tuple[str, ...] = ("http", "https")) -> bool:
+        """Return True when an LLM base URL is safe to parse consistently."""
+        if not value:
+            return False
+        if any(char == "\\" or char.isspace() or ord(char) < 32 or ord(char) == 127 for char in value):
+            return False
+
+        try:
+            parsed = urlparse(value)
+            host = parsed.hostname
+            _ = parsed.port
+        except ValueError:
+            return False
+
+        if parsed.scheme not in allowed_schemes or not parsed.netloc or not host:
+            return False
+        if "@" in parsed.netloc or parsed.username is not None or parsed.password is not None:
+            return False
+
+        return True
+
+    @staticmethod
     def _split_csv(value: str) -> List[str]:
         return [item.strip() for item in (value or "").split(",") if item.strip()]
 
@@ -2697,8 +2737,11 @@ class SystemConfigService:
         """
         import ipaddress
 
-        parsed = urlparse(value)
-        host = (parsed.hostname or "").lower()
+        try:
+            parsed = urlparse(value)
+            host = (parsed.hostname or "").lower()
+        except ValueError:
+            return False
         if not host:
             return True
         # Known cloud metadata hostnames
@@ -2721,7 +2764,12 @@ class SystemConfigService:
     @staticmethod
     def _build_llm_models_url(base_url: str) -> str:
         """Convert a channel base URL into a `/models` endpoint."""
-        parsed = urlparse(base_url.strip())
+        if not SystemConfigService._is_valid_llm_base_url(base_url):
+            raise ValueError("LLM channel base URL must be a valid absolute URL")
+        if not SystemConfigService._is_safe_base_url(base_url):
+            raise ValueError("LLM channel base URL points to a restricted address")
+
+        parsed = urlparse(base_url)
         normalized = (parsed.path or "").rstrip("/")
         for suffix in ("/chat/completions", "/completions"):
             if normalized.endswith(suffix):
@@ -2731,7 +2779,12 @@ class SystemConfigService:
             models_path = normalized or "/models"
         else:
             models_path = f"{normalized}/models" if normalized else "/models"
-        return urlunparse(parsed._replace(path=models_path, params="", query="", fragment=""))
+        models_url = urlunparse(parsed._replace(path=models_path, params="", query="", fragment=""))
+        if not SystemConfigService._is_valid_llm_base_url(models_url):
+            raise ValueError("LLM channel models URL must be a valid absolute URL")
+        if not SystemConfigService._is_safe_base_url(models_url):
+            raise ValueError("LLM channel models URL points to a restricted address")
+        return models_url
 
     @staticmethod
     def _get_runtime_llm_temperature() -> float:
@@ -3744,10 +3797,7 @@ class SystemConfigService:
                     "actual": "",
                 }
             )
-        elif base_url_value and not SystemConfigService._is_valid_url(
-            base_url_value,
-            allowed_schemes=("http", "https"),
-        ):
+        elif base_url_value and not SystemConfigService._is_valid_llm_base_url(base_url_value):
             issues.append(
                 {
                     "key": base_url_key,
