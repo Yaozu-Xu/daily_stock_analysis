@@ -850,8 +850,8 @@ describe('SettingsPage', () => {
               key: 'ALPHASIFT_INSTALL_SPEC',
               category: 'data_source',
               dataType: 'string',
-              uiControl: 'text',
-              isSensitive: false,
+              uiControl: 'password',
+              isSensitive: true,
               isRequired: false,
               isEditable: true,
               options: [],
@@ -879,6 +879,59 @@ describe('SettingsPage', () => {
     );
     expect(notifyAlphaSiftConfigChanged).toHaveBeenCalledTimes(1);
     expect(refreshAfterExternalSave).toHaveBeenCalledWith(['ALPHASIFT_ENABLED']);
+  });
+
+  it('does not render raw AlphaSift install spec in the settings card', () => {
+    const privateInstallSpec = 'git+https://user:token@example.com/internal/alphasift.git';
+    const configState = buildSystemConfigState();
+    useSystemConfigMock.mockReturnValue(buildSystemConfigState({
+      itemsByCategory: {
+        ...configState.itemsByCategory,
+        data_source: [
+          {
+            key: 'ALPHASIFT_ENABLED',
+            value: 'true',
+            rawValueExists: true,
+            isMasked: false,
+            schema: {
+              key: 'ALPHASIFT_ENABLED',
+              category: 'data_source',
+              dataType: 'boolean',
+              uiControl: 'switch',
+              isSensitive: false,
+              isRequired: false,
+              isEditable: true,
+              options: [],
+              validation: {},
+              displayOrder: 16,
+            },
+          },
+          {
+            key: 'ALPHASIFT_INSTALL_SPEC',
+            value: privateInstallSpec,
+            rawValueExists: true,
+            isMasked: true,
+            schema: {
+              key: 'ALPHASIFT_INSTALL_SPEC',
+              category: 'data_source',
+              dataType: 'string',
+              uiControl: 'password',
+              isSensitive: true,
+              isRequired: false,
+              isEditable: true,
+              options: [],
+              validation: {},
+              displayOrder: 17,
+            },
+          },
+        ],
+      },
+    }));
+
+    render(<SettingsPage />);
+
+    expect(screen.getByText('已配置（敏感值已隐藏）')).toBeInTheDocument();
+    expect(screen.queryByText(privateInstallSpec)).not.toBeInTheDocument();
   });
 
   it('does not run AlphaSift install when enabling the config fails', async () => {

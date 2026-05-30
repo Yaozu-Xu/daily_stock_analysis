@@ -321,6 +321,11 @@ const SettingsPage: React.FC = () => {
   const alphasiftEnabled = String(alphasiftItem?.value ?? '').trim().toLowerCase() === 'true';
   const alphasiftInstallSpec = String(alphasiftInstallSpecItem?.value || '').trim();
   const alphasiftInstallSpecAllowed = alphasiftInstallSpec === TRUSTED_ALPHASIFT_INSTALL_SPEC;
+  const alphasiftInstallSpecLabel = !alphasiftInstallSpec
+    ? '未配置'
+    : alphasiftInstallSpecAllowed
+      ? '受信任固定 GitHub commit'
+      : '已配置（敏感值已隐藏）';
   const hasConfiguredChannels = Boolean((rawActiveItemMap.get('LLM_CHANNELS') || '').trim());
   const hasLitellmConfig = Boolean((rawActiveItemMap.get('LITELLM_CONFIG') || '').trim());
 
@@ -666,11 +671,13 @@ const SettingsPage: React.FC = () => {
                       。开启后可在左侧导航进入“选股”，实际策略和数据处理仍由 AlphaSift 自己负责。
                     </p>
                     <p className="mt-1 text-xs leading-6 text-muted-text">
-                      安装来源：<code className="rounded bg-background/60 px-1 py-0.5 font-mono">{alphasiftInstallSpec || '未配置'}</code>
+                      安装来源：<span className="rounded bg-background/60 px-1 py-0.5">{alphasiftInstallSpecLabel}</span>
                     </p>
                     {!alphasiftInstallSpecAllowed ? (
                       <p className="mt-1 text-xs leading-6 text-amber-700 dark:text-amber-300">
-                        请把 ALPHASIFT_INSTALL_SPEC 配置为受信任的固定 GitHub commit；本地路径或 wheel 需先手动安装。
+                        {alphasiftInstallSpec
+                          ? '安装来源已隐藏；自动安装仅接受受信任固定 GitHub commit，自定义来源需先手动安装。'
+                          : '请把 ALPHASIFT_INSTALL_SPEC 配置为受信任的固定 GitHub commit；本地路径或 wheel 需先手动安装。'}
                       </p>
                     ) : null}
                     <p className="mt-2 text-xs leading-6 text-amber-700 dark:text-amber-300">
