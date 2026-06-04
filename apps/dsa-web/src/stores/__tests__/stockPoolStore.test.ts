@@ -10,6 +10,7 @@ vi.mock('../../api/history', () => ({
     getList: vi.fn(),
     getDetail: vi.fn(),
     deleteRecords: vi.fn(),
+    getStockBarList: vi.fn(),
   },
 }));
 
@@ -291,6 +292,69 @@ describe('stockPoolStore', () => {
     expect(state.isLoadingStockHistory).toBe(false);
     expect(state.isLoadingMoreStockHistory).toBe(false);
     expect(historyApi.getList).not.toHaveBeenCalled();
+  });
+
+  it('loads market review history through the dedicated MARKET filter', async () => {
+    const marketItem = {
+      ...historyItem,
+      id: 10,
+      queryId: 'market-review-q-10',
+      stockCode: 'MARKET',
+      stockName: '大盘复盘',
+      reportType: 'market_review' as const,
+      operationAdvice: '查看复盘',
+      sentimentScore: 50,
+    };
+    vi.mocked(historyApi.getList).mockResolvedValue({
+      total: 1,
+      page: 1,
+      limit: 10,
+      items: [marketItem],
+    });
+
+    await useStockPoolStore.getState().loadMarketReviewHistory();
+
+    const state = useStockPoolStore.getState();
+    expect(state.marketReviewHistoryItems).toEqual([marketItem]);
+    expect(state.marketReviewHistoryHasMore).toBe(false);
+    expect(historyApi.getList).toHaveBeenCalledWith({
+      stockCode: 'MARKET',
+      reportType: 'market_review',
+      page: 1,
+      limit: 10,
+    });
+  });
+
+  it('deletes the selected market review history record and clears the open market report', async () => {
+    const marketItem = {
+      ...historyItem,
+      id: 10,
+      queryId: 'market-review-q-10',
+      stockCode: 'MARKET',
+      stockName: '大盘复盘',
+      reportType: 'market_review' as const,
+    };
+    useStockPoolStore.setState({
+      marketReviewHistoryItems: [marketItem],
+      selectedMarketReviewHistoryIds: [10],
+      selectedReport: marketReviewHistoryReport,
+    });
+
+    vi.mocked(historyApi.deleteRecords).mockResolvedValue({ deleted: 1 });
+    vi.mocked(historyApi.getList).mockResolvedValue({
+      total: 0,
+      page: 1,
+      limit: 10,
+      items: [],
+    });
+
+    await useStockPoolStore.getState().deleteSelectedMarketReviewHistory();
+
+    const state = useStockPoolStore.getState();
+    expect(historyApi.deleteRecords).toHaveBeenCalledWith([10]);
+    expect(state.marketReviewHistoryItems).toEqual([]);
+    expect(state.selectedMarketReviewHistoryIds).toEqual([]);
+    expect(state.selectedReport).toBeNull();
   });
 
   it('deletes selected history and clears the selected report when nothing remains', async () => {
