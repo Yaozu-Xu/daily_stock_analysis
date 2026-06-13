@@ -242,6 +242,14 @@ class WecomPlatform(BotPlatform):
         """
         return True
 
+    def parse_message(self, data: Dict[str, Any]) -> Optional[BotMessage]:
+        """企业微信消息解析由 handle_webhook 直接处理，不使用此方法。
+
+        企业微信使用 XML + AES 加密格式，与 JSON 平台不同，
+        解析逻辑在 handle_webhook → _parse_xml_message 中完成。
+        """
+        return None
+
     def handle_challenge(self, data: Dict[str, Any]) -> Optional[WebhookResponse]:
         """企业微信 URL 验证是 GET 请求，不由 JSON 触发。"""
         return None
