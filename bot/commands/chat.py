@@ -97,7 +97,9 @@ class ChatCommand(BotCommand):
             result = executor.chat(message=user_message, session_id=session_id)
             
             if result.success:
-                return BotResponse.text_response(result.content)
+                # 在每次对话回复前添加 AI 股神问候语
+                greeting = "🤖 我是股神贾维斯，助你股票翻倍！\n\n"
+                return BotResponse.text_response(greeting + result.content)
             else:
                 return BotResponse.text_response(f"⚠️ 对话失败: {result.error}")
                 
