@@ -68,29 +68,37 @@ async def wecom_webhook(request: Request):
     headers = dict(request.headers)
     body = await request.body()
 
-    if request.method == "GET":
-        # GET 请求：URL 验证
-        # 将 query params 作为 data 传入
+    try:
+        if request.method == "GET":
+            # GET 请求：URL 验证
+            # 将 query params 作为 data 传入
+            query_params: Dict[str, list] = dict(request.query_params)
+            wr = handle_webhook_async(
+                "wecom",
+                headers,
+                body,
+                query_params=query_params,
+            )
+            # handle_webhook_async 返回 coroutine，需要 await
+            wr = await wr
+            return _webhook_response_to_fastapi(wr)
+
+        # POST 请求：消息推送
         query_params: Dict[str, list] = dict(request.query_params)
-        wr = handle_webhook_async(
+        wr = await handle_webhook_async(
             "wecom",
             headers,
             body,
             query_params=query_params,
         )
-        # handle_webhook_async 返回 coroutine，需要 await
-        wr = await wr
         return _webhook_response_to_fastapi(wr)
-
-    # POST 请求：消息推送
-    query_params: Dict[str, list] = dict(request.query_params)
-    wr = await handle_webhook_async(
-        "wecom",
-        headers,
-        body,
-        query_params=query_params,
-    )
-    return _webhook_response_to_fastapi(wr)
+    except Exception as exc:
+        logger.error("[Wecom] Webhook 处理异常: %s", exc, exc_info=True)
+        # 返回详细错误信息以便调试
+        return PlainTextResponse(
+            content=f"Error: {exc}",
+            status_code=500,
+        )
 
 
 @router.post("/dingtalk", include_in_schema=False)

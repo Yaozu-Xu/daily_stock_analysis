@@ -95,6 +95,11 @@ def handle_webhook(
                 data = {k: v[0] if isinstance(v, list) and len(v) == 1 else v
                         for k, v in query_params.items()}
             logger.debug(f"[BotHandler] 非 JSON 请求体，使用 query_params 作为 data")
+    elif query_params:
+        # GET 请求（如企业微信 URL 验证）：body 为空，直接使用 query_params
+        data = {k: v[0] if isinstance(v, list) and len(v) == 1 else v
+                for k, v in query_params.items()}
+        logger.debug(f"[BotHandler] 空请求体，使用 query_params 作为 data")
 
     logger.debug(f"[BotHandler] 请求数据: {str(data)[:500]}")
 
@@ -175,6 +180,11 @@ async def handle_webhook_async(
                 data = {k: v[0] if isinstance(v, list) and len(v) == 1 else v
                         for k, v in query_params.items()}
             logger.debug(f"[BotHandler] 非 JSON 请求体，使用 query_params 作为 data")
+    elif query_params:
+        # GET 请求（如企业微信 URL 验证）：body 为空，直接使用 query_params
+        data = {k: v[0] if isinstance(v, list) and len(v) == 1 else v
+                for k, v in query_params.items()}
+        logger.debug(f"[BotHandler] 空请求体，使用 query_params 作为 data")
 
     logger.debug(f"[BotHandler] 请求数据: {str(data)[:500]}")
 
