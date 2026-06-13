@@ -339,6 +339,11 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
             timestamp=datetime.now().isoformat()
         )
 
+    @app.get("/ping", tags=["Health"], summary="部署连通性测试")
+    async def ping():
+        """极简部署连通性测试接口，返回固定消息用于验证服务是否正常启动。"""
+        return {"message": "pong", "status": "ok", "timestamp": datetime.now().isoformat()}
+
     def _stock_index_candidate_paths() -> tuple[Path, ...]:
         local_candidates = (
             static_dir / _STOCK_INDEX_FILENAME,
