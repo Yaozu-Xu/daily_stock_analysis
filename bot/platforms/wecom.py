@@ -305,11 +305,21 @@ class WecomPlatform(BotPlatform):
         GET /bot/wecom?msg_signature=xxx&timestamp=xxx&nonce=xxx&echostr=xxx
 
         需要解密 echostr 并返回明文。
+
+        注意：echostr 是 Base64 编码的密文，可能包含 '+' 字符。
+        URL query string 中 '+' 会被自动解码为空格（application/x-www-form-urlencoded），
+        因此需要将空格还原为 '+'，否则签名验证和解密都会失败。
         """
         msg_signature = query_params.get("msg_signature", "")
         timestamp = query_params.get("timestamp", "")
         nonce = query_params.get("nonce", "")
         echo_str = query_params.get("echostr", "")
+
+        # 修复 URL 解码导致的 '+' → ' ' 问题
+        # Base64 编码的 echostr 中 '+' 是有效字符，不应被解码为空格
+        if " " in echo_str:
+            echo_str = echo_str.replace(" ", "+")
+            logger.debug("[Wecom] 修复 echostr 中的 '+' 编码: 空格已还原为 '+'")
 
         logger.info("[Wecom] 收到 URL 验证请求")
 
