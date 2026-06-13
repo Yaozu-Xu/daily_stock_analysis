@@ -46,6 +46,12 @@ if ($LASTEXITCODE -ne 0) {
   throw "pip install -r requirements.txt failed with exit code $LASTEXITCODE."
 }
 
+Write-Host 'Installing AlphaSift (git source, separate from requirements.txt)...'
+& $pythonBin -m pip install --no-cache-dir "alphasift @ git+https://github.com/ZhuLinsen/alphasift.git@1a0ed8c99b3615c0cb1076e6029827ffc6de2344"
+if ($LASTEXITCODE -ne 0) {
+  throw "pip install alphasift failed with exit code $LASTEXITCODE."
+}
+
 Write-Host 'Checking python-multipart availability...'
 if (-not (Test-PythonCode -Python $pythonBin -Code "import multipart, multipart.multipart")) {
   throw 'python-multipart is not importable in the selected Python environment.'

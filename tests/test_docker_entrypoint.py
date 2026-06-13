@@ -29,8 +29,12 @@ def test_dockerfile_bundles_default_alphasift_adapter() -> None:
     requirements = (REPO_ROOT / "requirements.txt").read_text(encoding="utf-8")
 
     assert "git \\" in dockerfile
-    assert "git+https://github.com/ZhuLinsen/alphasift.git@1a0ed8c99b3615c0cb1076e6029827ffc6de2344#egg=alphasift" in requirements
+    # alphasift is no longer in requirements.txt directly (moved to separate install
+    # to avoid Zeabur build failures where git is unavailable).
+    assert "git+https://github.com/ZhuLinsen/alphasift.git@1a0ed8c99b3615c0cb1076e6029827ffc6de2344" in requirements
     assert "pip install --no-cache-dir -r requirements.txt" in dockerfile
+    # Dockerfile installs alphasift separately after git is available
+    assert "alphasift @ git+https://github.com/ZhuLinsen/alphasift.git@1a0ed8c99b3615c0cb1076e6029827ffc6de2344" in dockerfile
     assert "import alphasift.dsa_adapter" in dockerfile
 
 

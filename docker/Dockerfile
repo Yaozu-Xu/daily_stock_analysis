@@ -43,8 +43,13 @@ RUN groupadd -g 1000 dsa && \
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装 Python 依赖
+# 安装 Python 依赖（不含 alphasift，它在下一层单独安装以避免 Zeabur 等无 git 环境构建失败）
 RUN pip install --no-cache-dir -r requirements.txt
+
+# 单独安装 AlphaSift（需要 git，已在 apt-get 层安装）
+# 从 requirements.txt 注释中提取安装来源，确保与桌面端构建一致
+RUN pip install --no-cache-dir \
+    "alphasift @ git+https://github.com/ZhuLinsen/alphasift.git@1a0ed8c99b3615c0cb1076e6029827ffc6de2344"
 
 # 复制应用代码
 COPY *.py ./

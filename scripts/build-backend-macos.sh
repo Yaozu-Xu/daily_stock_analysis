@@ -41,6 +41,10 @@ fi
 log "Installing backend dependencies..."
 "${PYTHON_BIN}" -m pip install -r "${ROOT_DIR}/requirements.txt"
 
+log "Installing AlphaSift (git source, separate from requirements.txt)..."
+"${PYTHON_BIN}" -m pip install --no-cache-dir \
+    "alphasift @ git+https://github.com/ZhuLinsen/alphasift.git@1a0ed8c99b3615c0cb1076e6029827ffc6de2344"
+
 log "Checking python-multipart availability..."
 "${PYTHON_BIN}" -c "import multipart, multipart.multipart"
 

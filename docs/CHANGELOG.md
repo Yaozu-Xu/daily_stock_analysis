@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [修复] 将 AlphaSift 从 `requirements.txt` 主依赖中分离，改为 `docker/Dockerfile` 和桌面端构建脚本中单独安装，避免 Zeabur 等无 `git` 环境的 Docker 构建失败。
 - [新功能] 企业微信机器人新增回调模式支持，用户可向企业微信自建应用发送消息，系统使用已配置的 LLM（DeepSeek 等）自动回复；新增 `WecomPlatform` 适配器实现 AES-256-CBC 加解密、URL 验证、XML 消息解析与加密回复，新增 `/bot/wecom` Webhook 端点（GET URL 验证 + POST 消息推送）。
 
 - [修复] 综合情报搜索中的机构分析与业绩预期维度改用 180 天 provider 请求窗口，避免默认短新闻窗口漏掉财报、研报等周期性财经材料。
