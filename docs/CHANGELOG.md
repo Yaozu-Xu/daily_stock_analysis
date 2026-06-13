@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [新功能] 企业微信机器人新增回调模式支持，用户可向企业微信自建应用发送消息，系统使用已配置的 LLM（DeepSeek 等）自动回复；新增 `WecomPlatform` 适配器实现 AES-256-CBC 加解密、URL 验证、XML 消息解析与加密回复，新增 `/bot/wecom` Webhook 端点（GET URL 验证 + POST 消息推送）。
+
 - [修复] 综合情报搜索中的机构分析与业绩预期维度改用 180 天 provider 请求窗口，避免默认短新闻窗口漏掉财报、研报等周期性财经材料。
 - [改进] 多股通知报告将市场阶段收敛为总览下方单行 `市场状态`，不再在每只股票摘要下重复展示数据质量和限制详情。
 - [修复] Web 个股栏和历史卡片在窄布局下不再让市场阶段标签遮挡股票名称。

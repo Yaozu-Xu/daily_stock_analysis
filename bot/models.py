@@ -156,11 +156,11 @@ class WebhookResponse:
     
     Attributes:
         status_code: HTTP 状态码
-        body: 响应体（字典，将被 JSON 序列化）
+        body: 响应体（字符串或字典，字符串直接返回，字典将被 JSON 序列化）
         headers: 额外的响应头
     """
     status_code: int = 200
-    body: Dict[str, Any] = field(default_factory=dict)
+    body: Any = field(default_factory=dict)
     headers: Dict[str, str] = field(default_factory=dict)
     
     @classmethod

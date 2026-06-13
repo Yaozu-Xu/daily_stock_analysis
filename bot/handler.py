@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import threading
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from bot.models import WebhookResponse
 from bot.dispatcher import get_dispatcher
@@ -84,14 +84,19 @@ def handle_webhook(
     if not platform:
         return WebhookResponse.error(f"Unknown platform: {platform_name}", 400)
 
-    # 解析 JSON 数据
-    try:
-        data = json.loads(body.decode('utf-8')) if body else {}
-    except json.JSONDecodeError as e:
-        logger.error(f"[BotHandler] JSON 解析失败: {e}")
-        return WebhookResponse.error("Invalid JSON", 400)
+    # 尝试解析 JSON 数据；非 JSON 平台（如企业微信）使用原始 body
+    data: Dict[str, Any] = {}
+    if body:
+        try:
+            data = json.loads(body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # 非 JSON 平台（如企业微信 XML），将 query_params 作为 data 传入
+            if query_params:
+                data = {k: v[0] if isinstance(v, list) and len(v) == 1 else v
+                        for k, v in query_params.items()}
+            logger.debug(f"[BotHandler] 非 JSON 请求体，使用 query_params 作为 data")
 
-    logger.debug(f"[BotHandler] 请求数据: {json.dumps(data, ensure_ascii=False)[:500]}")
+    logger.debug(f"[BotHandler] 请求数据: {str(data)[:500]}")
 
     # 处理 Webhook
     message, immediate_response = platform.handle_webhook(headers, body, data)
@@ -160,13 +165,18 @@ async def handle_webhook_async(
     if not platform:
         return WebhookResponse.error(f"Unknown platform: {platform_name}", 400)
 
-    try:
-        data = json.loads(body.decode('utf-8')) if body else {}
-    except json.JSONDecodeError as e:
-        logger.error(f"[BotHandler] JSON 解析失败: {e}")
-        return WebhookResponse.error("Invalid JSON", 400)
+    # 尝试解析 JSON 数据；非 JSON 平台（如企业微信）使用原始 body
+    data: Dict[str, Any] = {}
+    if body:
+        try:
+            data = json.loads(body.decode('utf-8'))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            if query_params:
+                data = {k: v[0] if isinstance(v, list) and len(v) == 1 else v
+                        for k, v in query_params.items()}
+            logger.debug(f"[BotHandler] 非 JSON 请求体，使用 query_params 作为 data")
 
-    logger.debug(f"[BotHandler] 请求数据: {json.dumps(data, ensure_ascii=False)[:500]}")
+    logger.debug(f"[BotHandler] 请求数据: {str(data)[:500]}")
 
     message, immediate_response = platform.handle_webhook(headers, body, data)
 
