@@ -67,8 +67,20 @@ def _get_credential_path() -> Path:
 
 
 def _is_auth_enabled_from_env() -> bool:
-    """Read ADMIN_AUTH_ENABLED from .env file."""
+    """Read ADMIN_AUTH_ENABLED from environment variable or .env file.
+
+    Priority:
+    1. System environment variable ADMIN_AUTH_ENABLED
+    2. .env file (via dotenv_values)
+    """
     _ensure_env_loaded()
+    # 优先检查系统环境变量（适用于 Zeabur / Docker 等平台）
+    env_val = os.getenv("ADMIN_AUTH_ENABLED", "").strip().lower()
+    if env_val in ("true", "1", "yes"):
+        return True
+    if env_val in ("false", "0", "no"):
+        return False
+    # 兜底：从 .env 文件读取
     env_file = os.getenv("ENV_FILE")
     env_path = Path(env_file) if env_file else Path(__file__).resolve().parent.parent / ".env"
     if not env_path.exists():
