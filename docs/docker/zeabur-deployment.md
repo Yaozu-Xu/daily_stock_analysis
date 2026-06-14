@@ -140,6 +140,27 @@ Dockerfile 已采用多阶段构建，前端会在镜像构建时自动打包。
 
 > 旧版 `WEBUI_HOST`/`WEBUI_PORT`/`WEBUI_ENABLED` 环境变量仍兼容，会自动转发到 API 服务。
 
+### 5.2a 认证与安全配置
+
+> **重要**：Docker 镜像默认已启用管理员认证（`ADMIN_AUTH_ENABLED=true`），
+> 确保公网部署时系统需要登录才能使用。部署后请务必设置 `ADMIN_PASSWORD`。
+
+| 变量名 | 说明 | 默认值 |
+|--------|------|--------|
+| `ADMIN_AUTH_ENABLED` | 是否启用管理员认证（登录保护） | `true`（Docker 镜像默认） |
+| `ADMIN_PASSWORD` | 管理员登录密码 | 无默认值，**必须设置** |
+| `SESSION_SECRET` | 会话签名密钥（建议设置为随机字符串） | 无默认值，自动生成 |
+
+**首次部署步骤**：
+
+1. 在 Zeabur 环境变量中设置 `ADMIN_PASSWORD`（登录密码）
+2. （可选）设置 `SESSION_SECRET` 为随机字符串，确保会话签名安全
+3. 部署完成后，访问服务域名会自动跳转到登录页面
+4. 使用用户名 `admin` 和设置的密码登录
+
+> 如需在本地开发时关闭认证，可在本地 `.env` 中设置 `ADMIN_AUTH_ENABLED=false`，
+> 但 Docker 镜像默认保持开启，确保公网部署安全。
+
 ### 5.3 分析相关配置
 
 | 变量名 | 说明 |

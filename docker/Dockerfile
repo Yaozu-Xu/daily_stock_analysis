@@ -76,6 +76,8 @@ ENV DATABASE_PATH=/app/data/stock_analysis.db
 # Web/API service
 ENV WEBUI_HOST=0.0.0.0
 ENV API_PORT=8000
+# Auth: enabled by default for public deployments (Zeabur, Docker, etc.)
+ENV ADMIN_AUTH_ENABLED=true
 
 # 暴露 API 端口
 EXPOSE 8000

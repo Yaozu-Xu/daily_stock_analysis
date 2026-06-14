@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [改进] Docker 镜像默认启用管理员认证（`ADMIN_AUTH_ENABLED=true`），公网部署时系统需要登录才能使用；新增 `ADMIN_PASSWORD`、`SESSION_SECRET` 环境变量文档。
+- [改进] Auth 中间件新增 SPA 路由保护：未登录用户访问前端页面（`/`、`/settings` 等）时自动重定向到 `/login`，静态资源（`/assets/*`）免认证以确保登录页正常渲染。
 - [修复] 将 AlphaSift 从 `requirements.txt` 主依赖中分离，改为 `docker/Dockerfile` 和桌面端构建脚本中单独安装，避免 Zeabur 等无 `git` 环境的 Docker 构建失败。
 - [新功能] 企业微信机器人新增回调模式支持，用户可向企业微信自建应用发送消息，系统使用已配置的 LLM（DeepSeek 等）自动回复；新增 `WecomPlatform` 适配器实现 AES-256-CBC 加解密、URL 验证、XML 消息解析与加密回复，新增 `/bot/wecom` Webhook 端点（GET URL 验证 + POST 消息推送）。
 
